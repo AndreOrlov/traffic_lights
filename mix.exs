@@ -14,6 +14,7 @@ defmodule TrafficLights.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {TrafficLightsApp, []},
       extra_applications: [:logger]
     ]
   end
