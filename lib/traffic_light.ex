@@ -8,12 +8,12 @@ defmodule TrafficLight do
   end
 
   def init(_opts) do
-    IO.inspect("TrafficLight.init")
+    #IO.inspect("TrafficLight.init")
 
     state =
       %{
-        red_light: {:off, Time.uts_now()},
-        green_light: {:off, Time.uts_now()}
+        red_light: {:off, Time.utc_now()},
+        green_light: {:off, Time.utc_now()}
       }
 
     {:ok, state}
@@ -42,14 +42,14 @@ defmodule TrafficLight do
   # Server
 
   def handle_call(:red_light_on, _from, state) do
-    IO.inspect("red_light_on")
+    #IO.inspect("red_light_on")
 
-    state = %{state | red_light: {:on, Time.utc_now()}
+    state = %{state | red_light: {:on, Time.utc_now()}}
     {:reply, Map.fetch(state, :red_light), state}
   end
 
   def handle_call(:red_light_off, _from, state) do
-    IO.inspect("red_light_off")
+    #IO.inspect("red_light_off")
 
     state = %{state | red_light: {:off, Time.utc_now()}}
     {:reply, Map.fetch(state, :red_light), state}
@@ -70,7 +70,7 @@ defmodule TrafficLight do
   end
 
   def handle_call(:status_lights, _from, state) do
-    IO.inspect("status_lights")
+    #IO.inspect("status_lights")
 
     {:reply, Map.take(state, [:red_light, :green_light]), state}
   end

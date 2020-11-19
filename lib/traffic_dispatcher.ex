@@ -6,8 +6,8 @@ defmodule TrafficDispatcher do
   @walker_light :walker
   @machine_light :machine
 
-  @walker_min_red_light_time_secs = 5
-  @walker_min_min_light_time_secs = 3
+  @walker_min_red_light_time_secs 5
+  @walker_min_green_light_time_secs 3
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -15,18 +15,18 @@ defmodule TrafficDispatcher do
 
   def init(:ok) do
     IO.inspect("TrafficDispatcher.init")
-    {:ok, :on} = TrafficLight.red_light_on(@walker_light)
-    {:ok, :off} = TrafficLight.green_light_off(@walker_light)
+    {:ok, _} = TrafficLight.red_light_on(@walker_light)
+    {:ok, _} = TrafficLight.green_light_off(@walker_light)
 
-    {:ok, :on} = TrafficLight.red_light_on(@machine_light)
-    {:ok, :off} = TrafficLight.green_light_off(@machine_light)
+    {:ok, _} = TrafficLight.red_light_on(@machine_light)
+    {:ok, _} = TrafficLight.green_light_off(@machine_light)
 
     {
       :ok,
       %{
         status: %{
-          machine: :green_light,
-          walker: :red_light,
+          # machine: :green_light,
+          # walker: :red_light,
           is_walker_pushed: false
         }
       }
@@ -57,64 +57,63 @@ defmodule TrafficDispatcher do
     # Важно
     # Добавить настраиваемый таймер для регулировки длмтельности горения сигнала светофора
 
-    #machine_light_status = TrafficLight.status_lights(@machine_light)
     walker_light_status = TrafficLight.status_lights(@walker_light)
 
-    case walker_light_status do
+    case walker_light_status |> IO.inspect() do
       %{red_light: {:on, red_light_time}} ->
-        secs = Time.utc_now() - red_light_times1
-        if secs < @walker_min_red_нонlight_time_secs do
+        secs = Time.diff(Time.utc_now(), red_light_time) |> IO.inspect()
+        if secs < @walker_min_red_light_time_secs do
           unless get_in(state, [:status, :is_walker_pushed]) do
+            IO.inspect("unless")
             state = put_in(state, [:status, :is_walker_pushed], true)
 
-            remaining_secs = @walker_min_red_light_time_secs - secs
+            remaining_secs = @walker_min_red_light_time_secs - secs |> IO.inspect()
             Process.send_after(self(), :walker_red_light_off, remaining_secs * 1000)
           end
         else
-          GenServer.call(self(), :walker_red_light_off)
+          IO.inspect("else")
 
-          Process.send_after(self(), :walker_red_light_on, @walker_min_min_light_time_secs * 1000)
+          TrafficLight.red_light_on(@machine_light)
+          TrafficLight.green_light_off(@machine_light)
+          TrafficLight.red_light_off(@walker_light)
+          TrafficLight.green_light_on(@walker_light)
+
+          state = put_in(state, [:status, :is_walker_pushed], false)
+
+          Process.send_after(self(), :walker_red_light_on, @walker_min_green_light_time_secs * 1000)
         end
       _ ->
         IO.inspect({"Default case", state})
     end
 
-    {:reply, :test, state |> IO.inspect({"New state", state})}
+    {:reply, :push_walker_button, state |> IO.inspect()}
   end
 
-  def handle_call(:walker_red_light_off, _from, state) do
-    state = put_in(state, [:status, :is_walker_pushed], false)
-
+  def handle_info(:walker_red_light_off, state) do
+    # TODO: move to function w state
     TrafficLight.red_light_on(@machine_light)
     TrafficLight.green_light_off(@machine_light)
     TrafficLight.red_light_off(@walker_light)
     TrafficLight.green_light_on(@walker_light)
 
-    {:reply, :test, state}
-  end
-
-  def handle_call(:walker_red_light_on, _from, state) do
     state = put_in(state, [:status, :is_walker_pushed], false)
 
+    Process.send_after(self(), :walker_red_light_on, @walker_min_green_light_time_secs)
+
+    IO.inspect({"info_walker_red_light_off", state})
+    {:noreply, state}
+  end
+
+  def handle_info(:walker_red_light_on, state) do
+    # TODO: move to function w state
     TrafficLight.red_light_off(@machine_light)
     TrafficLight.green_light_on(@machine_light)
     TrafficLight.red_light_on(@walker_light)
     TrafficLight.green_light_off(@walker_light)
 
-    {:reply, :test, state}
-  end
+    state = put_in(state, [:status, :is_walker_pushed], false)
 
-  # private
-
-  # TODO надо ли?
-  defp lights_turning(:red_light_on, :green_light_off) do
-    %{red_light: {:on, Time.utc_now()}, green_light: {:off, Time.utc_now()}}
-  end
-  defp lights_turning(:red_light_off, :green_light_on) do
-    %{red_light: {:off, Time.utc_now()}, green_light: {:on, Time.utc_now()}}
-  end
-  defp lights_turning(red_light, green_light) do
-    IO.inspect({"Arguments", red_light, green_light})
-    raise ArgumentError
+    IO.inspect({"info_walker_red_light_on", state})
+    {:noreply, state}
   end
 end
